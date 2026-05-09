@@ -1,9 +1,9 @@
 <template>
-    <menus></menus>
+    <AppMenu />
 </template>
 
 <script setup lang="ts">
-import menus from '../components/menu.vue';
+import AppMenu from '../components/AppMenu.vue';
 </script>
 
 <style scoped></style>
