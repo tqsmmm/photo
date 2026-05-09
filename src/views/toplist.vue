@@ -4,26 +4,41 @@
         <h2 class="page-title">热门榜单</h2>
         <p class="page-desc">根据全站浏览量评选出的佳作</p>
     </div>
-    <AppTag />
-    <PicList :list="list" @click-photo="handlePhotoClick" />
+    <AppTag @change="handleTagChange" />
+    <PicList :list="list" :loading="loading" @click-photo="handlePhotoClick" />
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import NProgress from 'nprogress';
 import AppMenu from '../components/AppMenu.vue';
 import AppTag from '../components/AppTag.vue';
 import PicList from '../components/PicList.vue';
 
 const list = ref<any[]>([]);
+const loading = ref(false);
 
-const fetchPhotos = async () => {
+const fetchPhotos = async (query = '') => {
+    loading.value = true;
+    NProgress.start();
     try {
-        const res = await fetch('http://localhost:3000/api/photos?sorting=views');
+        const url = new URL('http://localhost:3000/api/photos');
+        url.searchParams.append('sorting', 'views');
+        if (query) url.searchParams.append('q', query);
+        
+        const res = await fetch(url.toString());
         const data = await res.json();
         list.value = data;
     } catch (err) {
         console.error('Failed to fetch photos:', err);
+    } finally {
+        loading.value = false;
+        NProgress.done();
     }
+};
+
+const handleTagChange = (tag: string) => {
+    fetchPhotos(tag);
 };
 
 const handlePhotoClick = async (id: string) => {

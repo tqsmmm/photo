@@ -1,6 +1,19 @@
 <template>
     <div class="pic-wrapper">
-        <div class="pic-container" ref="containerRef">
+        <!-- Skeleton Loading State -->
+        <div v-if="loading" class="skeleton-container">
+            <div v-for="i in 8" :key="i" class="skeleton-item" :style="{ height: skeletonHeights[i-1] + 'px' }">
+                <div class="skeleton-pulse"></div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div v-else-if="list.length === 0" class="empty-state">
+            <el-empty description="没有找到相关图片，换个关键词试试吧" />
+        </div>
+
+        <!-- Main Content -->
+        <div v-show="!loading && list.length > 0" class="pic-container" ref="containerRef">
             <div 
                 v-for="(item, index) in layoutItems" 
                 :key="item.id || item.file"
@@ -15,7 +28,6 @@
                 @click="openPreview(index, item)"
             >
                 <div class="image-wrapper">
-                    <!-- Use thumb for list for faster loading -->
                     <el-image 
                         :src="item.thumb || item.file" 
                         loading="lazy"
@@ -46,7 +58,7 @@
             </div>
         </div>
 
-        <!-- Manual Image Viewer with full-size images -->
+        <!-- Manual Image Viewer -->
         <el-image-viewer
             v-if="showViewer"
             :url-list="previewList"
@@ -57,13 +69,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue';
 import { Star, View } from '@element-plus/icons-vue';
 
 interface PicItem {
     id?: string;
-    file: string;   // Full size
-    thumb?: string; // Thumbnail
+    file: string;
+    thumb?: string;
     title?: string;
     views?: number;
     height: number;
@@ -74,6 +86,7 @@ interface PicItem {
 
 const props = defineProps<{
     list: { id?: string; file: string; thumb?: string; title?: string; views?: number }[];
+    loading?: boolean;
 }>();
 
 const emit = defineEmits(['click-photo']);
@@ -81,6 +94,8 @@ const emit = defineEmits(['click-photo']);
 const containerRef = ref<HTMLElement | null>(null);
 const layoutItems = ref<PicItem[]>([]);
 const previewList = computed(() => props.list.map(i => i.file));
+
+const skeletonHeights = [300, 450, 250, 400, 350, 480, 300, 380];
 
 // Viewer state
 const showViewer = ref(false);
@@ -105,19 +120,21 @@ const handleDownload = (item: any) => {
 };
 
 const initLayout = async () => {
-    if (!containerRef.value) return;
+    // Wait for DOM to update and container to be visible
+    await nextTick();
+    if (!containerRef.value || props.list.length === 0 || props.loading) return;
     
     const containerWidth = containerRef.value.clientWidth;
+    if (containerWidth === 0) return; // Still hidden?
+
     const columns = Math.max(1, Math.floor(containerWidth / (COLUMN_WIDTH + GUTTER)));
     const offset = (containerWidth - (columns * (COLUMN_WIDTH + GUTTER) - GUTTER)) / 2;
     
     const heights = new Array(columns).fill(0);
     const newItems: PicItem[] = [];
     
-    for (let i = 0; i < props.list.length; i++) {
-        const item = props.list[i];
+    const promises = props.list.map(async (item) => {
         let imgHeight = 200; 
-
         const img = new Image();
         img.src = item.thumb || item.file;
         await new Promise((resolve) => {
@@ -127,20 +144,25 @@ const initLayout = async () => {
             };
             img.onerror = resolve;
         });
+        return { ...item, imgHeight };
+    });
 
+    const processedItems = await Promise.all(promises);
+
+    processedItems.forEach((item) => {
         const minHeight = Math.min(...heights);
         const columnIndex = heights.indexOf(minHeight);
         
         newItems.push({
             ...item,
-            height: imgHeight,
+            height: item.imgHeight,
             top: minHeight,
             left: offset + columnIndex * (COLUMN_WIDTH + GUTTER),
             ready: true
         });
         
-        heights[columnIndex] += imgHeight + GUTTER;
-    }
+        heights[columnIndex] += item.imgHeight + GUTTER;
+    });
     
     layoutItems.value = newItems;
     if (containerRef.value) {
@@ -163,13 +185,48 @@ onUnmounted(() => {
     window.removeEventListener('resize', handleResize);
 });
 
-watch(() => props.list, () => initLayout(), { deep: true });
+// Important: watch loading and list to trigger re-layout
+watch(() => [props.list, props.loading], () => initLayout(), { deep: true });
 </script>
 
 <style scoped lang="less">
 .pic-wrapper {
     padding: 0 40px;
     margin-bottom: 80px;
+    min-height: 400px;
+}
+
+.skeleton-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 340px);
+    gap: 24px;
+    justify-content: center;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.skeleton-item {
+    background: #f1f5f9;
+    border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+    
+    .skeleton-pulse {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+        animation: pulse 1.5s infinite;
+    }
+}
+
+@keyframes pulse {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.empty-state {
+    padding: 100px 0;
 }
 
 .pic-container {
@@ -297,6 +354,9 @@ watch(() => props.list, () => initLayout(), { deep: true });
 @media (max-width: 768px) {
     .pic-wrapper {
         padding: 0 16px;
+    }
+    .skeleton-container {
+        grid-template-columns: 1fr;
     }
     .pic-item {
         width: calc(100vw - 32px);

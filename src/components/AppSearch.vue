@@ -15,17 +15,18 @@
                     v-model="search" 
                     placeholder="搜索你想要的精美壁纸..." 
                     size="large"
+                    @keyup.enter="triggerSearch"
                 >
                     <template #prefix>
-                        <el-icon class="search-icon"><Search /></el-icon>
+                        <el-icon class="search-icon" @click="triggerSearch"><Search /></el-icon>
                     </template>
                 </el-input>
                 <div class="search-suggestions">
                     <span>热门搜索：</span>
-                    <a href="#">赛博朋克</a>
-                    <a href="#">极简主义</a>
-                    <a href="#">大自然</a>
-                    <a href="#">4K壁纸</a>
+                    <a href="#" @click.prevent="suggestSearch('赛博朋克')">赛博朋克</a>
+                    <a href="#" @click.prevent="suggestSearch('极简主义')">极简主义</a>
+                    <a href="#" @click.prevent="suggestSearch('大自然')">大自然</a>
+                    <a href="#" @click.prevent="suggestSearch('4K壁纸')">4K壁纸</a>
                 </div>
             </div>
         </div>
@@ -37,6 +38,16 @@ import { ref } from 'vue';
 import { Search } from '@element-plus/icons-vue';
 
 const search = ref('');
+const emit = defineEmits(['search']);
+
+const triggerSearch = () => {
+    emit('search', search.value);
+};
+
+const suggestSearch = (keyword: string) => {
+    search.value = keyword;
+    triggerSearch();
+};
 </script>
 
 <style scoped lang="less">
@@ -118,6 +129,10 @@ const search = ref('');
             .search-icon {
                 font-size: 1.4rem;
                 color: #64748b;
+                cursor: pointer;
+                &:hover {
+                    color: #1e293b;
+                }
             }
         }
 

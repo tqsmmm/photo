@@ -47,14 +47,14 @@ const fetchWallhaven = async (endpoint, params = {}) => {
 
 // Routes
 fastify.get('/api/photos', async (request, reply) => {
-    const { sorting = 'date_added', category = 'all' } = request.query;
+    const { sorting = 'date_added', categories = '111', purity = '100', q = '' } = request.query;
     
     // Map our categories to wallhaven categories if needed
-    // categories: 111 (General/Anime/People)
     const wallhavenData = await fetchWallhaven('search', { 
         sorting,
-        categories: '111', // Default all
-        purity: '100'     // SFW only for safety
+        q,
+        categories, 
+        purity     
     });
 
     // Merge with local click stats
