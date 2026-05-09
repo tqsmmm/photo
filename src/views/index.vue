@@ -2,25 +2,43 @@
     <AppMenu />
     <AppSearch />
     <AppTag />
-    <PicList :list="list" />
+    <PicList :list="list" @click-photo="handlePhotoClick" />
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue';
 import AppMenu from '../components/AppMenu.vue';
 import AppSearch from '../components/AppSearch.vue';
 import AppTag from '../components/AppTag.vue';
 import PicList from '../components/PicList.vue';
 
-const list = [
-    { file: '/images/wallhaven-6dqemx.jpg' },
-    { file: '/images/wallhaven-kx9jpq.jpg' },
-    { file: '/images/wallhaven-m3pvy8.jpg' },
-    { file: '/images/wallhaven-p92mj3.jpg' },
-    { file: '/images/wallhaven-x6128o.jpg' },
-    { file: '/images/wallhaven-yxj2el.png' },
-    { file: '/images/wallhaven-zyx9lw.jpg' },
-    { file: '/images/wallhaven-zyxvqy.jpg' },
-];
+const list = ref<any[]>([]);
+
+const fetchPhotos = async () => {
+    try {
+        const res = await fetch('http://localhost:3000/api/photos?sorting=toplist');
+        const data = await res.json();
+        list.value = data;
+    } catch (err) {
+        console.error('Failed to fetch photos:', err);
+    }
+};
+
+const handlePhotoClick = async (id: string) => {
+    try {
+        await fetch(`http://localhost:3000/api/photos/${id}/click`, {
+            method: 'POST'
+        });
+        const photo = list.value.find(p => p.id === id);
+        if (photo) photo.views++;
+    } catch (err) {
+        console.error('Failed to record click:', err);
+    }
+};
+
+onMounted(() => {
+    fetchPhotos();
+});
 </script>
 
 <style scoped lang="less"></style>
